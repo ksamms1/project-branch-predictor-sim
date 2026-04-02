@@ -5,18 +5,11 @@
 // basic results plus the predictor's final contents.
 
 #include <exception>
-#include <iomanip>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
-#include <filesystem>
 
 #include "single_program_sim.h"
-#include "predictor_base.h"
-#include "predictor_factory.h"
-#include "trace_reader.h"
-#include "types.h"
 
 // Print the accepted command formats.
 // <M2> is the number of bits for the bimodal branch predictor index.
