@@ -1,0 +1,22 @@
+# Build artifacts
+*.o
+sim
+
+# Output files
+out_*.txt
+my_*.txt
+*.zip
+
+# Editor / OS junk
+*.swp
+*~
+.DS_Store
+*.db
+*.db*
+*.vc*
+.vscode/browse.vc.db
+**/browse.vc.db
+.vscode/
+submission_package/
+results/
+
