@@ -5,8 +5,12 @@ Branch predictor simulator based on Machine Problem 2.
 This project is organized so it can support:
 
 1. Single-program simulation mode (MP2 baseline)
-2. Later: multi-program shared-predictor simulation mode (group project)
-
+2. Multi-program mode CLI shape: ./sim multi <predictor_mode> <predictor_args...> <trace1> <trace2> [trace3 ...]
+	Examples:
+	./sim multi smith 3 traces/gcc_trace.txt traces/jpeg_trace.txt
+	./sim multi bimodal 6 traces/gcc_trace.txt traces/jpeg_trace.txt traces/perl_trace.txt
+	./sim multi gshare 9 3 traces/gcc_trace.txt traces/jpeg_trace.txt
+	./sim multi hybrid 8 14 10 5 traces/gcc_trace.txt traces/jpeg_trace.txt	
 ---
 
 ## Current Status
