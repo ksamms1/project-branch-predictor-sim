@@ -1,10 +1,8 @@
 // multiprogram_sim.cpp
-// First working version of multi-program shared-predictor simulation.
-// This version uses simple round-robin scheduling and executes
-// one branch at a time from each trace, sharing one predictor instance.
+// Multi-program shared-predictor simulation with configurable time slice.
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,124 +22,123 @@ struct ProgramTrace
     SimulationStats stats;
 };
 
+// Execute ONE branch for a program
+static bool execute_one_branch(
+    ProgramTrace& program,
+    PredictorBase& predictor,
+    SimulationStats& total_stats)
+{
+    if (program.next_index >= program.branches.size())
+        return false;
+
+    const BranchRecord& branch = program.branches[program.next_index];
+
+    bool predicted_taken = predictor.predict(branch.pc);
+
+    program.stats.predictions++;
+    total_stats.predictions++;
+
+    if (predicted_taken != branch.taken)
+    {
+        program.stats.mispredictions++;
+        total_stats.mispredictions++;
+    }
+
+    predictor.update(branch.pc, branch.taken);
+
+    program.next_index++;
+    return true;
+}
+
 int run_multi_program_sim(
     const std::string& predictor_mode,
     const std::vector<std::string>& predictor_args,
     const std::vector<std::string>& tracefiles
 )
 {
-    // Create one shared predictor instance for all programs.
+    // --- configurable (for now hardcoded, next step = CLI)
+    std::size_t time_slice = 1;
+
     std::unique_ptr<PredictorBase> predictor =
         create_predictor(predictor_mode, predictor_args);
 
-    // Load all traces into memory.
     std::vector<ProgramTrace> programs;
-    for (std::size_t i = 0; i < tracefiles.size(); i++)
+
+    for (const auto& tf : tracefiles)
     {
         ProgramTrace program;
-        program.tracefile = tracefiles[i];
-        program.branches = read_trace(tracefiles[i]);
+        program.tracefile = tf;
+        program.branches = read_trace(tf);
         programs.push_back(program);
     }
 
-    // Global multi-program statistics.
     SimulationStats total_stats;
 
-    // Track whether any program still has work left.
     bool work_remaining = true;
 
-    // Round-robin scheduling:
-    // during each pass, give each non-finished program one branch.
     while (work_remaining)
     {
         work_remaining = false;
 
-        for (std::size_t i = 0; i < programs.size(); i++)
+        for (auto& program : programs)
         {
-            ProgramTrace& program = programs[i];
-
-            // Skip finished traces.
             if (program.next_index >= program.branches.size())
-            {
                 continue;
-            }
 
             work_remaining = true;
 
-            // Fetch the next branch for this program.
-            const BranchRecord& branch = program.branches[program.next_index];
-
-            // Shared predictor makes a prediction.
-            bool predicted_taken = predictor->predict(branch.pc);
-
-            // Update per-program stats.
-            program.stats.predictions++;
-
-            // Update total stats.
-            total_stats.predictions++;
-
-            if (predicted_taken != branch.taken)
+            // execute up to time_slice branches
+            for (std::size_t i = 0; i < time_slice; i++)
             {
-                program.stats.mispredictions++;
-                total_stats.mispredictions++;
+                if (!execute_one_branch(program, *predictor, total_stats))
+                    break;
             }
-
-            // Update shared predictor using the actual outcome.
-            predictor->update(branch.pc, branch.taken);
-
-            // Advance this program to its next branch.
-            program.next_index++;
         }
     }
 
-    // Print summary output for this first working version.
+    // ----- Output -----
+
     std::cout << "MULTI-PROGRAM MODE" << std::endl;
-    std::cout << "scheduler:\tround-robin (1 branch per turn)" << std::endl;
-    std::cout << "predictor mode:\t" << predictor_mode << std::endl;
+    std::cout << "scheduler:\tround-robin" << std::endl;
+    std::cout << "time slice:\t" << time_slice << std::endl;
+    std::cout << "predictor:\t" << predictor_mode << std::endl;
 
     std::cout << "predictor args:";
-    for (std::size_t i = 0; i < predictor_args.size(); i++)
-    {
-        std::cout << " " << predictor_args[i];
-    }
+    for (const auto& arg : predictor_args)
+        std::cout << " " << arg;
     std::cout << std::endl;
 
-    std::cout << "program count:\t" << programs.size() << std::endl;
+    std::cout << std::fixed << std::setprecision(2);
+
     std::cout << "total predictions:\t" << total_stats.predictions << std::endl;
     std::cout << "total mispredictions:\t" << total_stats.mispredictions << std::endl;
 
-    double total_misprediction_rate = 0.0;
+    double total_rate = 0.0;
     if (total_stats.predictions > 0)
     {
-        total_misprediction_rate =
-            100.0 * static_cast<double>(total_stats.mispredictions) /
+        total_rate = 100.0 *
+            static_cast<double>(total_stats.mispredictions) /
             static_cast<double>(total_stats.predictions);
     }
 
-    std::cout << std::fixed << std::setprecision(2);
-    std::cout << "total misprediction rate:\t"
-              << total_misprediction_rate << "%" << std::endl;
+    std::cout << "total misprediction rate:\t" << total_rate << "%" << std::endl;
 
     std::cout << "per-program results:" << std::endl;
+
     for (std::size_t i = 0; i < programs.size(); i++)
     {
         double rate = 0.0;
         if (programs[i].stats.predictions > 0)
         {
-            rate =
-                100.0 * static_cast<double>(programs[i].stats.mispredictions) /
+            rate = 100.0 *
+                static_cast<double>(programs[i].stats.mispredictions) /
                 static_cast<double>(programs[i].stats.predictions);
         }
 
-        std::cout << "  program " << i
-                  << ": " << programs[i].tracefile
-                  << std::endl;
-        std::cout << "    predictions:\t" << programs[i].stats.predictions
-                  << std::endl;
-        std::cout << "    mispredictions:\t" << programs[i].stats.mispredictions
-                  << std::endl;
-        std::cout << "    misprediction rate:\t" << rate << "%"
-                  << std::endl;
+        std::cout << "  [" << i << "] " << programs[i].tracefile << std::endl;
+        std::cout << "    predictions:\t" << programs[i].stats.predictions << std::endl;
+        std::cout << "    mispredictions:\t" << programs[i].stats.mispredictions << std::endl;
+        std::cout << "    misprediction rate:\t" << rate << "%" << std::endl;
     }
 
     return 0;
