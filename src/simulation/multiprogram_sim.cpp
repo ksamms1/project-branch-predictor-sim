@@ -22,14 +22,16 @@ struct ProgramTrace
     SimulationStats stats;
 };
 
-// Execute ONE branch for a program
+// Execute ONE branch for a program.
 static bool execute_one_branch(
     ProgramTrace& program,
     PredictorBase& predictor,
     SimulationStats& total_stats)
 {
     if (program.next_index >= program.branches.size())
+    {
         return false;
+    }
 
     const BranchRecord& branch = program.branches[program.next_index];
 
@@ -51,14 +53,12 @@ static bool execute_one_branch(
 }
 
 int run_multi_program_sim(
+    std::size_t time_slice,
     const std::string& predictor_mode,
     const std::vector<std::string>& predictor_args,
     const std::vector<std::string>& tracefiles
 )
 {
-    // --- configurable (for now hardcoded, next step = CLI)
-    std::size_t time_slice = 1;
-
     std::unique_ptr<PredictorBase> predictor =
         create_predictor(predictor_mode, predictor_args);
 
@@ -83,20 +83,21 @@ int run_multi_program_sim(
         for (auto& program : programs)
         {
             if (program.next_index >= program.branches.size())
+            {
                 continue;
+            }
 
             work_remaining = true;
 
-            // execute up to time_slice branches
             for (std::size_t i = 0; i < time_slice; i++)
             {
                 if (!execute_one_branch(program, *predictor, total_stats))
+                {
                     break;
+                }
             }
         }
     }
-
-    // ----- Output -----
 
     std::cout << "MULTI-PROGRAM MODE" << std::endl;
     std::cout << "scheduler:\tround-robin" << std::endl;
@@ -105,7 +106,9 @@ int run_multi_program_sim(
 
     std::cout << "predictor args:";
     for (const auto& arg : predictor_args)
+    {
         std::cout << " " << arg;
+    }
     std::cout << std::endl;
 
     std::cout << std::fixed << std::setprecision(2);

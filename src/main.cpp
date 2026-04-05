@@ -47,20 +47,36 @@ int main(int argc, char* argv[])
         std::string mode = argv[1];
 
         // Multi-program mode:
-        // ./sim multi <predictor_mode> <predictor_args...> <trace1> <trace2> [trace3 ...]
+        // ./sim multi <slice> <predictor_mode> <predictor_args...> <trace1> <trace2> [trace3 ...]
         if (mode == "multi")
         {
-            if (argc < 6)
+            if (argc < 7)
             {
                 print_usage();
                 return 1;
             }
 
-            std::string predictor_mode = argv[2];
+            std::size_t time_slice = 0;
+            try
+            {
+                time_slice = static_cast<std::size_t>(std::stoul(argv[2]));
+            }
+            catch (const std::exception&)
+            {
+                std::cerr << "Error: invalid time slice: " << argv[2] << std::endl;
+                return 1;
+            }
 
-            // Collect all arguments after the "multi" and predictor mode.
+            if (time_slice == 0)
+            {
+                std::cerr << "Error: time slice must be greater than 0." << std::endl;
+                return 1;
+            }
+
+            std::string predictor_mode = argv[3];
+
             std::vector<std::string> multi_args;
-            for (int i = 3; i < argc; i++)
+            for (int i = 4; i < argc; i++)
             {
                 multi_args.push_back(argv[i]);
             }
@@ -127,7 +143,12 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            return run_multi_program_sim(predictor_mode, predictor_args, tracefiles);
+            return run_multi_program_sim(
+                time_slice,
+                predictor_mode,
+                predictor_args,
+                tracefiles
+            );
         }
 
         // Collect all remaining arguments after the mode.
