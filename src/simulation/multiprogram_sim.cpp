@@ -1,6 +1,7 @@
 // multiprogram_sim.cpp
 // Multi-program shared-predictor simulation with configurable time slice.
 
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -73,12 +74,14 @@ int run_multi_program_sim(
     }
 
     SimulationStats total_stats;
+    std::size_t scheduler_rounds = 0;
 
     bool work_remaining = true;
 
     while (work_remaining)
     {
         work_remaining = false;
+        bool executed_any_branch_this_round = false;
 
         for (auto& program : programs)
         {
@@ -95,26 +98,16 @@ int run_multi_program_sim(
                 {
                     break;
                 }
+
+                executed_any_branch_this_round = true;
             }
         }
+
+        if (executed_any_branch_this_round)
+        {
+            scheduler_rounds++;
+        }
     }
-
-    std::cout << "MULTI-PROGRAM MODE" << std::endl;
-    std::cout << "scheduler:\tround-robin" << std::endl;
-    std::cout << "time slice:\t" << time_slice << std::endl;
-    std::cout << "predictor:\t" << predictor_mode << std::endl;
-
-    std::cout << "predictor args:";
-    for (const auto& arg : predictor_args)
-    {
-        std::cout << " " << arg;
-    }
-    std::cout << std::endl;
-
-    std::cout << std::fixed << std::setprecision(2);
-
-    std::cout << "total predictions:\t" << total_stats.predictions << std::endl;
-    std::cout << "total mispredictions:\t" << total_stats.mispredictions << std::endl;
 
     double total_rate = 0.0;
     if (total_stats.predictions > 0)
@@ -124,9 +117,30 @@ int run_multi_program_sim(
             static_cast<double>(total_stats.predictions);
     }
 
+    std::cout << std::fixed << std::setprecision(2);
+
+    std::cout << "COMMAND" << std::endl;
+    std::cout << "./sim multi " << time_slice << " " << predictor_mode;
+    for (const auto& arg : predictor_args)
+    {
+        std::cout << " " << arg;
+    }
+    for (const auto& tf : tracefiles)
+    {
+        std::cout << " " << std::filesystem::path(tf).filename().string();
+    }
+    std::cout << std::endl;
+
+    std::cout << "MULTI-PROGRAM OUTPUT" << std::endl;
+    std::cout << "scheduler:\t\t\tround-robin" << std::endl;
+    std::cout << "time slice:\t\t\t" << time_slice << std::endl;
+    std::cout << "program count:\t\t\t" << programs.size() << std::endl;
+    std::cout << "scheduler rounds:\t\t" << scheduler_rounds << std::endl;
+    std::cout << "total predictions:\t\t" << total_stats.predictions << std::endl;
+    std::cout << "total mispredictions:\t\t" << total_stats.mispredictions << std::endl;
     std::cout << "total misprediction rate:\t" << total_rate << "%" << std::endl;
 
-    std::cout << "per-program results:" << std::endl;
+    std::cout << "PER-PROGRAM RESULTS" << std::endl;
 
     for (std::size_t i = 0; i < programs.size(); i++)
     {
@@ -138,11 +152,23 @@ int run_multi_program_sim(
                 static_cast<double>(programs[i].stats.predictions);
         }
 
-        std::cout << "  [" << i << "] " << programs[i].tracefile << std::endl;
-        std::cout << "    predictions:\t" << programs[i].stats.predictions << std::endl;
-        std::cout << "    mispredictions:\t" << programs[i].stats.mispredictions << std::endl;
-        std::cout << "    misprediction rate:\t" << rate << "%" << std::endl;
+        std::cout << "program " << i << ":" << std::endl;
+        std::cout << "tracefile:\t\t\t"
+                  << std::filesystem::path(programs[i].tracefile).filename().string()
+                  << std::endl;
+        std::cout << "branches loaded:\t\t"
+                  << programs[i].branches.size() << std::endl;
+        std::cout << "branches executed:\t\t"
+                  << programs[i].next_index << std::endl;
+        std::cout << "predictions:\t\t\t"
+                  << programs[i].stats.predictions << std::endl;
+        std::cout << "mispredictions:\t\t\t"
+                  << programs[i].stats.mispredictions << std::endl;
+        std::cout << "misprediction rate:\t\t"
+                  << rate << "%" << std::endl;
     }
+
+    predictor->print_final_contents(std::cout);
 
     return 0;
 }
