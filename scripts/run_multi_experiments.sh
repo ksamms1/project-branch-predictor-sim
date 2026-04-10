@@ -15,21 +15,20 @@ make
 
 OUTPUT_FILE="results/multi_program_results.csv"
 
-echo "predictor,slice,trace_set,total_predictions,total_mispredictions,total_misprediction_rate,program0_trace,program0_predictions,program0_mispredictions,program0_misprediction_rate,program1_trace,program1_predictions,program1_mispredictions,program1_misprediction_rate" > "$OUTPUT_FILE"
+echo "run_id,scheduler,slice,predictor,predictor_args,program_count,trace_set,program_index,tracefile,trace_name,branches_loaded,branches_executed,predictions,mispredictions,misprediction_rate,total_predictions,total_mispredictions,total_misprediction_rate,scheduler_rounds" > "$OUTPUT_FILE"
 
 # Slice values to test
 SLICES=(1 2 5 10 25 50 100)
 
-# Trace pairs to test
-TRACE_PAIRS=(
+# Trace sets to test
+TRACE_SETS=(
   "gcc jpeg"
   "gcc perl"
   "jpeg perl"
 )
 
-# Predictor configurations to test
-# Format:
-#   label|mode|args
+# Predictor configurations:
+# label|mode|args
 PREDICTORS=(
   "smith_3|smith|3"
   "bimodal_6|bimodal|6"
@@ -43,62 +42,74 @@ do
 
     for slice in "${SLICES[@]}"
     do
-        for pair in "${TRACE_PAIRS[@]}"
+        for trace_set in "${TRACE_SETS[@]}"
         do
-            read -r trace_a trace_b <<< "$pair"
+            read -r -a trace_array <<< "$trace_set"
 
-            cmd="./sim multi $slice $predictor_mode $predictor_args traces/${trace_a}_trace.txt traces/${trace_b}_trace.txt"
+            cmd="./sim multi $slice $predictor_mode $predictor_args"
+            trace_set_name=""
+
+            for trace_name in "${trace_array[@]}"
+            do
+                cmd="$cmd traces/${trace_name}_trace.txt"
+
+                if [ -z "$trace_set_name" ]; then
+                    trace_set_name="$trace_name"
+                else
+                    trace_set_name="${trace_set_name}+${trace_name}"
+                fi
+            done
+
+            run_id="multi_${slice}_${predictor_label}_${trace_set_name}"
+
             echo "Running: $cmd"
 
             output=$($cmd)
 
-            total_predictions=$(echo "$output" | grep "total predictions:" | awk '{print $3}')
-            total_mispredictions=$(echo "$output" | grep "total mispredictions:" | awk '{print $3}')
-            total_rate=$(echo "$output" | grep "total misprediction rate:" | awk '{print $4}' | tr -d '%')
+            scheduler=$(echo "$output" | grep "^scheduler:" | awk '{print $2}')
+            scheduler_rounds=$(echo "$output" | grep "^scheduler rounds:" | awk '{print $3}')
+            total_predictions=$(echo "$output" | grep "^total predictions:" | awk '{print $3}')
+            total_mispredictions=$(echo "$output" | grep "^total mispredictions:" | awk '{print $3}')
+            total_misprediction_rate=$(echo "$output" | grep "^total misprediction rate:" | awk '{print $4}' | tr -d '%')
 
-            program0_trace=$(echo "$output" | awk '
-                /program 0:/ {found=1; next}
-                found && /tracefile:/ {print $2; exit}
-            ')
+            program_count=${#trace_array[@]}
 
-            program0_predictions=$(echo "$output" | awk '
-                /program 0:/ {found=1; next}
-                found && /predictions:/ {print $2; exit}
-            ')
+            for ((program_index=0; program_index<program_count; program_index++))
+            do
+                tracefile=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^tracefile:/ {print $2; exit}
+                ')
 
-            program0_mispredictions=$(echo "$output" | awk '
-                /program 0:/ {found=1; next}
-                found && /mispredictions:/ {print $2; exit}
-            ')
+                trace_name=$(echo "$tracefile" | sed 's#traces/##' | sed 's/_trace\.txt//')
 
-            program0_rate=$(echo "$output" | awk '
-                /program 0:/ {found=1; next}
-                found && /misprediction rate:/ {print $3; exit}
-            ' | tr -d '%')
+                branches_loaded=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^branches loaded:/ {print $3; exit}
+                ')
 
-            program1_trace=$(echo "$output" | awk '
-                /program 1:/ {found=1; next}
-                found && /tracefile:/ {print $2; exit}
-            ')
+                branches_executed=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^branches executed:/ {print $3; exit}
+                ')
 
-            program1_predictions=$(echo "$output" | awk '
-                /program 1:/ {found=1; next}
-                found && /predictions:/ {print $2; exit}
-            ')
+                predictions=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^predictions:/ {print $2; exit}
+                ')
 
-            program1_mispredictions=$(echo "$output" | awk '
-                /program 1:/ {found=1; next}
-                found && /mispredictions:/ {print $2; exit}
-            ')
+                mispredictions=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^mispredictions:/ {print $2; exit}
+                ')
 
-            program1_rate=$(echo "$output" | awk '
-                /program 1:/ {found=1; next}
-                found && /misprediction rate:/ {print $3; exit}
-            ' | tr -d '%')
+                misprediction_rate=$(echo "$output" | awk -v idx="$program_index" '
+                    $0 ~ "^program " idx ":" {found=1; next}
+                    found && /^misprediction rate:/ {print $3; exit}
+                ' | tr -d '%')
 
-            trace_set="${trace_a}+${trace_b}"
-
-            echo "${predictor_label},${slice},${trace_set},${total_predictions},${total_mispredictions},${total_rate},${program0_trace},${program0_predictions},${program0_mispredictions},${program0_rate},${program1_trace},${program1_predictions},${program1_mispredictions},${program1_rate}" >> "$OUTPUT_FILE"
+                echo "${run_id},${scheduler},${slice},${predictor_mode},\"${predictor_args}\",${program_count},${trace_set_name},${program_index},${tracefile},${trace_name},${branches_loaded},${branches_executed},${predictions},${mispredictions},${misprediction_rate},${total_predictions},${total_mispredictions},${total_misprediction_rate},${scheduler_rounds}" >> "$OUTPUT_FILE"
+            done
         done
     done
 done
