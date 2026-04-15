@@ -26,7 +26,7 @@ This mode uses a shared branch predictor across all input traces with round-robi
 - Output matches professor-provided validation files exactly
 - Ready for use by team members
 - This branch (`feature/multi-program`) is the primary working version of the project
-- It is intended to replace the original main branch after validation
+- It is intended to replace the original main branch
 - All multi-program experiments should be run from this branch
 - Supports:
   - multiple trace files
@@ -42,7 +42,7 @@ This mode uses a shared branch predictor across all input traces with round-robi
 ## Repository Setup
 
 Clone and build:
-
+**Note** make sure you check out the **feature/multi-program** branch, not main
 ```bash
 git clone git@github.com:ksamms1/project-branch-predictor-sim.git
 cd project-branch-predictor-sim
@@ -112,8 +112,8 @@ chmod +x scripts/run_validation_w_formatting.sh
 ```
 
 ## Experiment Scripts
-These scripts are the primary interface for generating experiment data.
-The simulator itself does not produce CSV files directly.
+These scripts are the primary interface for generating experiment data (CSV files).
+The simulator itself **does not** produce CSV files directly - the scripts do.
 
 # Generate single-program baseline data
 ```bash
