@@ -25,6 +25,7 @@ TRACE_SETS=(
   "gcc jpeg"
   "gcc perl"
   "jpeg perl"
+  "gcc jpeg perl"
 )
 
 # Predictor configurations:
