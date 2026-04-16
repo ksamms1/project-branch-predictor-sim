@@ -221,8 +221,70 @@ ggsave(
   dpi = 300
 )
 
-# ---- plot 4: single-program baseline reference chart ----
+# ---- plot 4: degradation heatmap (pair vs triple split) ----
 p4 <- ggplot(
+  multi_summary_df,
+  aes(
+    x = factor(slice),
+    y = trace_set,
+    fill = absolute_degradation
+  )
+) +
+  geom_tile(color = "white") +
+  facet_grid(program_count ~ predictor, scales = "free_y") +
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0,
+    name = "Degradation (%)"
+  ) +
+  labs(
+    title = "Degradation heatmap (pair vs triple trace sets)",
+    x = "Time slice",
+    y = "Trace set"
+  ) +
+  theme_minimal()
+
+ggsave(
+  filename = file.path(plots_dir, "degradation_heatmap_pair_vs_triple.png"),
+  plot = p4,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+# ---- plot 5: facet grid (program_count × predictor) ----
+p5 <- ggplot(
+  multi_summary_df,
+  aes(
+    x = slice,
+    y = misprediction_rate,
+    color = trace_set,
+    group = trace_set
+  )
+) +
+  geom_point(size = 2.5) +
+  geom_line(size = 0.5, alpha = 0.6) +
+  facet_grid(program_count ~ predictor, scales = "free_y") +
+  labs(
+    title = "Misprediction rate by program count and predictor",
+    x = "Time slice",
+    y = "Misprediction rate (%)",
+    color = "Trace set"
+  ) +
+  theme_minimal()
+
+ggsave(
+  filename = file.path(plots_dir, "facet_program_count_vs_predictor.png"),
+  plot = p5,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+
+# ---- plot 6: single-program baseline reference chart ----
+p6 <- ggplot(
   single_df,
   aes(
     x = trace_name,
@@ -242,11 +304,13 @@ p4 <- ggplot(
 
 ggsave(
   filename = file.path(plots_dir, "single_program_baselines.png"),
-  plot = p4,
+  plot = p6,
   width = 10,
   height = 6,
   dpi = 300
 )
+
+
 
 cat("Wrote derived CSV to:", derived_file, "\n")
 cat("Wrote plots to:", plots_dir, "\n")
