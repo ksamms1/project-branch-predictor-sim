@@ -172,9 +172,109 @@ results/multi_program_results.csv
 ## Important Notes
 - Output format must not be modified without updating scripts
 - Multi-program mode uses round-robin scheduling only
-- No context-switch penalty is modeled (yet)
+- No context-switch penalty is modeled
 
-## Future Work (very near future)
-- R / ggplot2 integration for automated graph generation
-- additional scheduling policies
-- degradation analysis pipeline
+## Graphs
+1. Misprediction Rate vs Time Slice
+File: trace_set_rate_vs_slice.png
+# What it shows:
+- X-axis: time slice (number of branches executed before context switch) 
+- Y-axis: misprediction rate (%) 
+- Each line/point series: a trace set (e.g., gcc+jpeg, gcc+jpeg+perl) 
+- Separate panels for each predictor 
+
+# How to interpret it:
+- Each point is a complete experiment run at that slice value 
+- Smaller slices --> more frequent context switching --> more predictor interference 
+- Larger slices --> behavior closer to single-program execution 
+- Compare how different trace combinations affect predictor accuracy 
+
+# Key takeaway:
+- Shows how predictor accuracy changes as programs are interleaved more or less aggressively 
+
+2. Degradation vs Time Slice
+File: trace_set_degradation_vs_slice.png
+# What it shows:
+- X-axis: time slice 
+- Y-axis: degradation = (multi-program rate − single-program baseline) 
+- Each series: a trace set 
+- Separate panels for each predictor 
+
+# How to interpret it:
+- Value = how much worse the predictor performs compared to running traces individually 
+0 means no interference 
+- Higher values mean more degradation due to sharing the predictor 
+
+# Key takeaway:
+- Directly measures interference caused by multi-program execution 
+- Easier to compare across traces than raw misprediction rates 
+
+3. Degradation Heatmap (All Trace Sets)
+File: degradation_heatmap.png
+# What it shows:
+- X-axis: time slice (discrete tested values) 
+- Y-axis: trace set (e.g., gcc+jpeg, gcc+jpeg+perl) 
+- Color: degradation amount 
+
+# How to interpret it:
+- Each cell is one complete experiment 
+- White ≈ no degradation 
+- Red = higher degradation (worse performance) 
+- Blue (if present) = better than baseline 
+
+# Key takeaway:
+- Quickly identifies: 
+- worst-performing slice values 
+- most problematic trace combinations 
+- overall trends across predictors 
+
+4. Degradation Heatmap (Pair vs Triple Trace Sets)
+File: degradation_heatmap_pair_vs_triple.png
+# What it shows:
+- Same as the previous heatmap, but split into rows: 
+- top row: 2-program (pair) runs 
+- bottom row: 3-program runs 
+- Columns: predictors 
+
+# How to interpret it:
+- Compare 2-program vs 3-program interference directly 
+- Observe whether adding a third program significantly increases degradation 
+- Key takeaway:
+- Shows how interference scales with the number of programs sharing the predictor 
+
+5. Facet Grid: Program Count × Predictor
+File: facet_program_count_vs_predictor.png
+# What it shows:
+# Grid layout: 
+- rows: number of programs (2 vs 3) 
+- columns: predictor type 
+- X-axis: time slice 
+- Y-axis: misprediction rate 
+- Lines/points: trace sets 
+
+# How to interpret it:
+- Each panel isolates one condition (predictor + program count) 
+
+# Compare: 
+- predictors within the same row 
+- effect of adding a third program (row comparison) 
+
+# Key takeaway:
+- Best overall comparison view for: 
+- vpredictor robustness 
+- scaling behavior (2 → 3 programs) 
+
+6. Single-Program Baseline Misprediction Rates
+File: single_program_baselines.png
+# What it :
+- X-axis: trace (gcc, jpeg, perl) 
+- Y-axis: misprediction rate 
+- Separate panels for each predictor 
+
+# How to interpret it:
+- Each point is a single trace run to completion 
+- No interference from other programs 
+
+# Key takeaway:
+- Establishes the baseline performance for each predictor 
+- Used as the reference for all degradation calculations
